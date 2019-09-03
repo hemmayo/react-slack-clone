@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import firebase from "../../firebase";
+import md5 from "md5";
 import {
   Grid,
   Button,
@@ -18,11 +19,16 @@ export default class Register extends Component {
     password: "",
     password_confirmation: "",
     errors: [],
-    loading: false
+    loading: false,
+    usersRef: firebase.database().ref("users")
   };
 
-  displayErrors = errors =>
-    errors.map((error, idx) => <p key={idx}>{error.message}</p>);
+  displayErrors = errors => {
+    return [...new Set(errors.map(e => e.message))].map((message, idx) => (
+      <p key={idx}>{message}</p>
+    ));
+    // return <p>{errors[0].message}</p>;
+  };
 
   isFormValid = () => {
     let errors = [...this.state.errors];
@@ -56,7 +62,7 @@ export default class Register extends Component {
   };
 
   handleFormChange = evt => {
-    this.setState({ [evt.target.name]: evt.target.value });
+    this.setState({ errors: [], [evt.target.name]: evt.target.value });
   };
 
   handleSubmit = evt => {
@@ -69,16 +75,52 @@ export default class Register extends Component {
         .createUserWithEmailAndPassword(this.state.email, this.state.password)
         .then(createdUser => {
           console.log(createdUser);
-          this.setState({ loading: false });
+          createdUser.user
+            .updateProfile({
+              displayName: this.state.username,
+              photoURL: `https://www.gravatar.com/avatar/${md5(
+                createdUser.user.email
+              )}?d=identicon`
+            })
+            .then(() => {
+              this.saveUser(createdUser).then(() => {
+                console.log("user saved");
+                this.setState({
+                  loading: false
+                });
+              });
+            })
+            .catch(err => {
+              console.error(err);
+              this.setState({
+                loading: false,
+                errors: this.state.errors.concat(err)
+              });
+            });
         })
         .catch(error => {
           console.error(error);
           this.setState({
             loading: false,
-            err: this.state.errors.concat(error)
+            errors: this.state.errors.concat(error)
           });
         });
     }
+  };
+
+  saveUser = createdUser => {
+    return this.state.usersRef.child(createdUser.user.uid).set({
+      name: createdUser.user.displayName,
+      avatar: createdUser.user.photoURL
+    });
+  };
+
+  handleInputError = (errors, inputField) => {
+    return errors.some(error =>
+      error.message.toLowerCase().includes(inputField)
+    )
+      ? "error"
+      : "";
   };
   render() {
     const {
@@ -106,6 +148,7 @@ export default class Register extends Component {
               <Form.Input
                 fluid
                 name="username"
+                className={this.handleInputError(errors, "username")}
                 value={username}
                 icon="user"
                 iconPosition="left"
@@ -116,6 +159,7 @@ export default class Register extends Component {
               <Form.Input
                 fluid
                 name="email"
+                className={this.handleInputError(errors, "email")}
                 value={email}
                 icon="mail"
                 iconPosition="left"
@@ -126,6 +170,7 @@ export default class Register extends Component {
               <Form.Input
                 fluid
                 name="password"
+                className={this.handleInputError(errors, "password")}
                 value={password}
                 icon="lock"
                 iconPosition="left"
@@ -136,6 +181,7 @@ export default class Register extends Component {
               <Form.Input
                 fluid
                 name="password_confirmation"
+                className={this.handleInputError(errors, "password")}
                 value={password_confirmation}
                 icon="repeat"
                 iconPosition="left"
