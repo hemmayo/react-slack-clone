@@ -85,9 +85,6 @@ export default class Register extends Component {
             .then(() => {
               this.saveUser(createdUser).then(() => {
                 console.log("user saved");
-                this.setState({
-                  loading: false
-                });
               });
             })
             .catch(err => {
@@ -122,6 +119,7 @@ export default class Register extends Component {
       ? "error"
       : "";
   };
+
   render() {
     const {
       email,
